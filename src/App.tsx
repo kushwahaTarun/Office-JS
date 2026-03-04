@@ -1,7 +1,6 @@
 import { useAuth0 } from "@auth0/auth0-react";
 import LoginButton from "./components/LoginButton";
-import LogoutButton from "./components/LogoutButton";
-import ExcelComponent from "./components/ExcelComponent";
+import ChatComponent from "./components/ChatComponent";
 
 function App() {
   const { isAuthenticated, isLoading, error } = useAuth0();
@@ -31,18 +30,7 @@ function App() {
   return (
     <>
       {isAuthenticated ? (
-        <div className="App">
-          <header className="App-header">
-            <h1>Fluid AI GPT - Excel Add-in</h1>
-            <p>Office.js Excel Integration</p>
-          </header>
-
-          <main>
-            <ExcelComponent />
-          </main>
-
-          <LogoutButton />
-        </div>
+        <ChatComponent />
       ) : (
         <div className="action-card">
           <p className="action-text">
