@@ -497,3 +497,102 @@ input:focus {
   transform: none;
   box-shadow: none;
 }
+
+/* ── Dark mode ──────────────────────────────────────────── */
+
+.chat-root.dark {
+  background: #111111;
+  color: #f0f0f0;
+}
+
+.chat-root.dark .chat-card {
+  background: #1e1e1e;
+}
+
+.chat-root.dark .chat-beta {
+  background: #2a2a2a;
+  border-color: #3a3a3a;
+  color: #9ca3af;
+}
+
+.chat-root.dark .chat-icon-btn {
+  color: #9ca3af;
+}
+
+.chat-root.dark .chat-icon-btn:hover {
+  background: #2e2e2e;
+  color: #e5e7eb;
+}
+
+.chat-root.dark .chat-avatar-fallback {
+  background: #b45309;
+}
+
+.chat-root.dark .chat-empty-text {
+  color: #9ca3af;
+}
+
+.chat-root.dark .chat-quick-action {
+  background: #2a2a2a;
+  border-color: #3a3a3a;
+  color: #d1d5db;
+}
+
+.chat-root.dark .chat-quick-action:hover {
+  background: #333333;
+  border-color: #4a4a4a;
+}
+
+.chat-root.dark .chat-msg-user .chat-msg-bubble {
+  background: #374151;
+  color: #f9fafb;
+}
+
+.chat-root.dark .chat-msg-assistant .chat-msg-bubble {
+  background: #2a2a2a;
+  color: #f0f0f0;
+  border-color: #3a3a3a;
+}
+
+.chat-root.dark .chat-typing span {
+  background: #6b7280;
+}
+
+.chat-root.dark .chat-input-card {
+  background: #1e1e1e;
+  border-color: #3a3a3a;
+}
+
+.chat-root.dark .chat-textarea {
+  color: #f0f0f0;
+}
+
+.chat-root.dark .chat-textarea::placeholder {
+  color: #6b7280;
+}
+
+.chat-root.dark .chat-footer-icon-btn {
+  color: #6b7280;
+}
+
+.chat-root.dark .chat-footer-icon-btn:hover {
+  color: #9ca3af;
+  background: #2a2a2a;
+}
+
+.chat-root.dark .chat-send-btn:not(:disabled) {
+  background: #e5e7eb;
+  color: #111111;
+}
+
+.chat-root.dark .chat-send-btn:hover:not(:disabled) {
+  background: #ffffff;
+}
+
+.chat-root.dark .chat-messages {
+  scrollbar-color: #3a3a3a transparent;
+}
+
+.chat-root.dark .chat-messages::-webkit-scrollbar-thumb {
+  background: #3a3a3a;
+}

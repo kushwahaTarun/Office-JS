@@ -19,6 +19,7 @@ export default function ChatComponent() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [dark, setDark] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -99,7 +100,7 @@ export default function ChatComponent() {
   const avatarLetter = user?.name?.[0]?.toUpperCase() ?? "U";
 
   return (
-    <div className="chat-root">
+    <div className={`chat-root${dark ? " dark" : ""}`}>
       <div className="chat-main">
 
         {/* Rounded card — messages area */}
@@ -121,13 +122,24 @@ export default function ChatComponent() {
                 </svg>
               </button>
 
-              {/* More options placeholder */}
-              <button className="chat-icon-btn" title="More options">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <circle cx="3.5" cy="8" r="1.1" fill="currentColor" />
-                  <circle cx="8" cy="8" r="1.1" fill="currentColor" />
-                  <circle cx="12.5" cy="8" r="1.1" fill="currentColor" />
-                </svg>
+              {/* Dark / light mode toggle */}
+              <button
+                className="chat-icon-btn"
+                onClick={() => setDark((d) => !d)}
+                title={dark ? "Switch to light mode" : "Switch to dark mode"}
+              >
+                {dark ? (
+                  /* Sun icon */
+                  <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                    <circle cx="8" cy="8" r="3" stroke="currentColor" strokeWidth="1.4" />
+                    <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.42 1.42M11.53 11.53l1.42 1.42M3.05 12.95l1.42-1.42M11.53 4.47l1.42-1.42" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                  </svg>
+                ) : (
+                  /* Moon icon */
+                  <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                    <path d="M13.5 10.5A6 6 0 015.5 2.5a6 6 0 000 11 6 6 0 008-3z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
               </button>
 
               {/* Avatar / sign out */}
