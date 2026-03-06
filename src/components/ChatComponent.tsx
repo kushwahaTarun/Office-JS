@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
+import { sendChatMessage } from "../services/chat";
 
 type Message = {
   id: string;
@@ -15,13 +16,25 @@ const QUICK_ACTIONS = [
 ];
 
 export default function ChatComponent() {
-  const { user, logout } = useAuth0();
+  const { user, logout, getIdTokenClaims, getAccessTokenSilently } = useAuth0();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [dark, setDark] = useState(false);
+  const [tenant, setTenant] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
+
+  useEffect(() => {
+    getIdTokenClaims().then((claims) => {
+      if (claims) {
+        const tv = (claims as Record<string, unknown>)["tenant_value"];
+        setTenant(Array.isArray(tv) ? (tv[0] ?? null) : (tv as string) ?? null);
+      }
+    });
+  }, [getIdTokenClaims]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -60,26 +73,41 @@ export default function ChatComponent() {
     setIsLoading(true);
 
     const excelContext = await getExcelContext();
+    const query = excelContext ? `${excelContext}\n\n${text.trim()}` : text.trim();
 
-    // TODO: Replace with your actual API call
-    // const res = await fetch("/api/chat", {
-    //   method: "POST",
-    //   headers: { "Content-Type": "application/json" },
-    //   body: JSON.stringify({ message: text, context: excelContext }),
-    // });
-    // const data = await res.json();
+    const assistantId = (Date.now() + 1).toString();
+    setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "" }]);
 
-    setTimeout(() => {
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: excelContext
-          ? `${excelContext}\n\nI can help you with that. Connect your AI backend to get real responses.`
-          : "I can help you with that. Connect your AI backend to get real responses.",
-      };
-      setMessages((prev) => [...prev, assistantMessage]);
+    try {
+      let freshToken: string | null = null;
+      try {
+        freshToken = await getAccessTokenSilently();
+      } catch {
+        // fall back to cached token if silent refresh fails
+      }
+
+      if (!freshToken) {
+        throw new Error("Auth token not available. Please sign out and sign in again.", {
+          cause: "CAUGHT_ERROR: AUTH ERROR",
+        });
+      }
+
+      const answer = await sendChatMessage({ token: freshToken, tenant, query });
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === assistantId ? { ...msg, content: answer } : msg
+        )
+      );
+    } catch (err) {
+      const error = err as Error;
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === assistantId ? { ...msg, content: error.message || "Something went wrong." } : msg
+        )
+      );
+    } finally {
       setIsLoading(false);
-    }, 800);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -207,6 +235,20 @@ export default function ChatComponent() {
 
         {/* Input card */}
         <div className="chat-input-card">
+          {attachedFile && (
+            <div className="chat-attachment-tag">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                <path d="M4 2h6l4 4v8a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="currentColor" strokeWidth="1.4" />
+                <path d="M10 2v4h4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+              </svg>
+              <span>{attachedFile.name}</span>
+              <button
+                className="chat-attachment-remove"
+                onClick={() => setAttachedFile(null)}
+                aria-label="Remove attachment"
+              >×</button>
+            </div>
+          )}
           <textarea
             ref={textareaRef}
             className="chat-textarea"
@@ -218,24 +260,27 @@ export default function ChatComponent() {
             disabled={isLoading}
           />
           <div className="chat-input-footer">
-            <div className="chat-input-footer-left">
-              <button className="chat-footer-icon-btn" title="Attach">
-                <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-                  <path
-                    d="M13 8.5V11a5 5 0 01-10 0V5a3 3 0 016 0v5.5a1.5 1.5 0 01-3 0V6"
-                    stroke="currentColor"
-                    strokeWidth="1.4"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </button>
-              <button className="chat-footer-icon-btn" title="Excel context">
-                <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-                  <rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.4" />
-                  <path d="M5 8h6M8 5v6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-                </svg>
-              </button>
-            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,video/*,.pdf,.xlsx,.xls,.csv"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const file = e.target.files?.[0] ?? null;
+                setAttachedFile(file);
+                e.target.value = "";
+              }}
+            />
+            <button
+              className="chat-footer-icon-btn"
+              title="Upload media"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                <path d="M2 11.5V13a1 1 0 001 1h10a1 1 0 001-1v-1.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                <path d="M8 2v8M5 5l3-3 3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
             <button
               className="chat-send-btn"
               onClick={() => sendMessage(input)}
