@@ -213,14 +213,19 @@ export default function ChatComponent() {
               </div>
             ) : (
               <>
-                {messages.map((msg) => (
-                  <div key={msg.id} className={`chat-msg chat-msg-${msg.role}`}>
-                    <div className="chat-msg-bubble">{msg.content}</div>
-                  </div>
-                ))}
+                {messages.map((msg) =>
+                  msg.content ? (
+                    <div key={msg.id} className={`chat-msg chat-msg-${msg.role}`}>
+                      <div className="chat-msg-bubble">{msg.content}</div>
+                    </div>
+                  ) : null
+                )}
                 {isLoading && (
                   <div className="chat-msg chat-msg-assistant">
                     <div className="chat-msg-bubble chat-typing">
+                      <svg className="chat-typing-icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
+                        <path d="M8 1l1.5 4.5L14 7l-4.5 1.5L8 13l-1.5-4.5L2 7l4.5-1.5z" fill="currentColor" opacity="0.8"/>
+                      </svg>
                       <span />
                       <span />
                       <span />

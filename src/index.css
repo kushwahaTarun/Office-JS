@@ -384,6 +384,17 @@ input:focus {
   padding: 10px 14px;
 }
 
+.chat-typing-icon {
+  color: #6366f1;
+  margin-right: 4px;
+  animation: chat-pulse 1.5s infinite ease-in-out;
+}
+
+@keyframes chat-pulse {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
 .chat-typing span {
   display: block;
   width: 5px;
