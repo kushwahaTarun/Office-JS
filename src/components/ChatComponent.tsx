@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
-import { sendChatMessage } from "../services/chat";
+import { runAgent } from "../services/agent";
 
 type Message = {
   id: string;
@@ -40,22 +40,6 @@ export default function ChatComponent() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const getExcelContext = async (): Promise<string> => {
-    try {
-      return await Excel.run(async (context) => {
-        const range = context.workbook.getSelectedRange();
-        range.load(["values", "address"]);
-        await context.sync();
-        const value = range.values[0][0];
-        return value !== null && value !== ""
-          ? `[Selected cell ${range.address}: ${value}]`
-          : "";
-      });
-    } catch {
-      return "";
-    }
-  };
-
   const sendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
 
@@ -71,9 +55,6 @@ export default function ChatComponent() {
       textareaRef.current.style.height = "auto";
     }
     setIsLoading(true);
-
-    const excelContext = await getExcelContext();
-    const query = excelContext ? `${excelContext}\n\n${text.trim()}` : text.trim();
 
     const assistantId = (Date.now() + 1).toString();
     setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "" }]);
@@ -92,7 +73,24 @@ export default function ChatComponent() {
         });
       }
 
-      const answer = await sendChatMessage({ token: freshToken, tenant, query });
+      if (!tenant) {
+        throw new Error("Tenant not available. Please sign out and sign in again.", {
+          cause: "CAUGHT_ERROR: AUTH ERROR",
+        });
+      }
+
+      const answer = await runAgent(
+        text.trim(),
+        freshToken,
+        tenant,
+        (status) => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantId ? { ...msg, content: status } : msg
+            )
+          );
+        }
+      );
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === assistantId ? { ...msg, content: answer } : msg
