@@ -32,11 +32,17 @@ function App() {
       {isAuthenticated ? (
         <ChatComponent />
       ) : (
-        <div className="action-card">
-          <p className="action-text">
-            Get started by signing in to your account
-          </p>
-          <LoginButton />
+        <div className="login-screen">
+          <div className="login-card">
+            <div className="login-icon">
+              <svg width="28" height="28" viewBox="0 0 16 16" fill="none">
+                <path d="M8 1l1.5 4.5L14 7l-4.5 1.5L8 13l-1.5-4.5L2 7l4.5-1.5z" fill="#6366f1"/>
+              </svg>
+            </div>
+            <h2 className="login-title">Fluid GPT for Excel</h2>
+            <p className="login-subtitle">Sign in to start taking AI-powered actions in your spreadsheet</p>
+            <LoginButton />
+          </div>
         </div>
       )}
     </>
