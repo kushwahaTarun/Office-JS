@@ -9,19 +9,22 @@ const SYSTEM_PROMPT = `You are an Excel AI assistant. You help users read and mo
 You have access to the following tools. To call a tool, respond with ONLY a raw JSON object — no markdown fences, no explanation before or after.
 
 {"tool":"get_workbook_info"}
-  → Returns all sheet names and the active sheet name.
+  → Returns detailed metadata about all sheets (name, rowCount, columnCount) and the active sheet.
 
 {"tool":"read_range","sheet":"Sheet1","range":"A1:C10"}
-  → Reads cell values from the given range.
+  → Reads cell values and formulas from the given range. Returns values, formulas, and dimensions.
 
 {"tool":"write_cell","sheet":"Sheet1","cell":"B3","value":42}
   → Writes a single value (string, number, or boolean) to a cell.
 
-{"tool":"write_range","sheet":"Sheet1","range":"A1:C2","values":[["Name","Age","City"],["Alice",30,"NYC"]]}
-  → Writes a 2D array of values to a range. Rows and columns must match the range dimensions.
+{"tool":"write_range","sheet":"Sheet1","range":"A1:C2","values":[["Name","Age","City"],["Alice",30,"NYC"]], "isFormula": false}
+  → Writes a 2D array of values or formulas to a range. If "isFormula" is true, values are treated as formulas.
 
 {"tool":"add_formula","sheet":"Sheet1","cell":"D1","formula":"=SUM(A1:C1)"}
   → Writes an Excel formula to a cell. Always prefix with =.
+
+{"tool":"clear_range","sheet":"Sheet1","range":"A1:C10"}
+  → Clears content and formatting from the given range.
 
 {"tool":"final_answer","answer":"I completed the task. Here is what I did: ..."}
   → Ends the task. Always call this last with a clear summary for the user.
@@ -29,8 +32,10 @@ You have access to the following tools. To call a tool, respond with ONLY a raw 
 Rules:
 1. Think step-by-step before acting.
 2. Read data first if you need to understand the sheet structure before modifying.
-3. Always call final_answer when done — even if no changes were made.
-4. If the user only asks a question (no sheet changes needed), call final_answer directly.`;
+3. Use the provided metadata (active sheet, selected range) to contextualize the user's request.
+4. If writing values (like numbers/strings), check if the target range is empty first by reading it, unless the user explicitly asks to overwrite.
+5. Always call final_answer when done — even if no changes were made.
+6. If the user only asks a question (no sheet changes needed), call final_answer directly.`;
 
 function parseToolCall(text: string): ToolCall | null {
   // Match outermost JSON object containing a "tool" key
@@ -44,11 +49,15 @@ function parseToolCall(text: string): ToolCall | null {
 }
 
 function formatContext(ctx: WorkbookContext): string {
+  const selected = ctx.selectedRange;
+  const sheetsMeta = ctx.sheetsMetadata.map(m => `- ${m.name}: ${m.rowCount} rows, ${m.columnCount} cols ${m.hasData ? "(contains data)" : "(empty)"}`).join("\n");
+
   return [
     `Active sheet: ${ctx.activeSheet}`,
-    `All sheets: ${ctx.sheets.join(", ")}`,
-    `Selected cell: ${ctx.selectedCell} (value: ${ctx.selectedValue ?? "empty"})`,
-    `Sheet data:`,
+    `Sheets Metadata:\n${sheetsMeta}`,
+    `Current Selection: ${selected.address} (${selected.rowCount}x${selected.columnCount} range)`,
+    `Selection Values: ${JSON.stringify(selected.values)}`,
+    `Active Sheet Preview (Top 50 rows, 20 cols):`,
     ctx.sheetData,
   ].join("\n");
 }

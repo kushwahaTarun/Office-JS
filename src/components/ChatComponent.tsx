@@ -34,6 +34,32 @@ export default function ChatComponent() {
         setTenant(Array.isArray(tv) ? (tv[0] ?? null) : (tv as string) ?? null);
       }
     });
+
+    // Selection listener
+    let selectionEvent: Office.EventHandlerResult | null = null;
+
+    Office.onReady(() => {
+      Office.context.document.addHandlerAsync(
+        Office.EventType.DocumentSelectionChanged,
+        () => {
+          // Trigger a silent context refresh or just let the next agent run pick it up
+          // For now, we don't need to do much because runAgent calls getWorkbookContext() at the start.
+          // However, we could store it in state if we wanted to show it in the UI.
+          console.log("Selection changed");
+        },
+        (result) => {
+          if (result.status === Office.AsyncResultStatus.Succeeded) {
+            selectionEvent = result.value;
+          }
+        }
+      );
+    });
+
+    return () => {
+      if (selectionEvent) {
+        // Cleanup listener if possible (Office.js doesn't always make this easy/necessary for add-ins)
+      }
+    };
   }, [getIdTokenClaims]);
 
   useEffect(() => {
@@ -222,7 +248,7 @@ export default function ChatComponent() {
                   <div className="chat-msg chat-msg-assistant">
                     <div className="chat-msg-bubble chat-typing">
                       <svg className="chat-typing-icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
-                        <path d="M8 1l1.5 4.5L14 7l-4.5 1.5L8 13l-1.5-4.5L2 7l4.5-1.5z" fill="currentColor" opacity="0.8"/>
+                        <path d="M8 1l1.5 4.5L14 7l-4.5 1.5L8 13l-1.5-4.5L2 7l4.5-1.5z" fill="currentColor" opacity="0.8" />
                       </svg>
                       <span />
                       <span />
