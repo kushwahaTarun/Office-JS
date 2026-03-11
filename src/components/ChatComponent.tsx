@@ -36,7 +36,7 @@ export default function ChatComponent() {
     });
 
     // Selection listener
-    let selectionEvent: Office.EventHandlerResult | null = null;
+    let selectionEvent: any = null;
 
     Office.onReady(() => {
       Office.context.document.addHandlerAsync(
