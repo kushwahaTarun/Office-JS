@@ -50,6 +50,23 @@ export type ToolCall =
 export type ExecutableTool = Exclude<ToolCall, { tool: "final_answer" }>;
 
 export async function getWorkbookContext(): Promise<WorkbookContext> {
+  // Check if Excel API is available
+  if (typeof Excel === "undefined") {
+    console.error("Excel API is not available. Are you running in Excel?");
+    return {
+      activeSheet: "Sheet1",
+      sheets: ["Sheet1"],
+      sheetsMetadata: [{ name: "Sheet1", rowCount: 0, columnCount: 0, hasData: false }],
+      selectedRange: {
+        address: "A1",
+        rowCount: 1,
+        columnCount: 1,
+        values: [[""]],
+      },
+      sheetData: "Excel API not available. Please run this add-in in Excel.",
+    };
+  }
+
   try {
     return await Excel.run(async (ctx) => {
       const wb = ctx.workbook;
@@ -141,6 +158,11 @@ function colLetter(i: number): string {
 }
 
 export async function executeTool(tool: ExecutableTool): Promise<unknown> {
+  // Check if Excel API is available
+  if (typeof Excel === "undefined") {
+    throw new Error("Excel API is not available. This add-in must be run in Microsoft Excel.");
+  }
+
   switch (tool.tool) {
     case "get_workbook_info": {
       const ctx = await getWorkbookContext();

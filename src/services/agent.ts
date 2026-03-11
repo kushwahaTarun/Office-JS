@@ -2,6 +2,7 @@ import { getWorkbookContext, executeTool } from "./office";
 import type { ToolCall, ExecutableTool, WorkbookContext } from "./office";
 import { sendChatMessage } from "./chat";
 import { getWorkbookInsights } from "./contextUtils";
+import { parseAIResponse } from "./markdownUtils";
 
 const MAX_STEPS = 15;
 
@@ -138,14 +139,49 @@ User: "Fill down the formula"
 10. **Explain clearly** - users need to know what you did`;
 
 function parseToolCall(text: string): ToolCall | null {
-  // Match outermost JSON object containing a "tool" key
-  const match = text.match(/\{[^{}]*"tool"\s*:[^{}]*\}/s);
-  if (!match) return null;
-  try {
-    return JSON.parse(match[0]) as ToolCall;
-  } catch {
-    return null;
+  // Step 1: Try to extract JSON from markdown code blocks first
+  const markdownJsonMatch = text.match(/```(?:json)?\s*(\{[^`]*\})\s*```/s);
+  if (markdownJsonMatch) {
+    try {
+      const parsed = JSON.parse(markdownJsonMatch[1]);
+      if (parsed.tool) return parsed as ToolCall;
+    } catch {
+      // Continue to next method
+    }
   }
+
+  // Step 2: Try to find JSON object in plain text (original method)
+  const jsonMatch = text.match(/\{[^{}]*"tool"\s*:[^{}]*\}/s);
+  if (jsonMatch) {
+    try {
+      return JSON.parse(jsonMatch[0]) as ToolCall;
+    } catch {
+      // Continue to next method
+    }
+  }
+
+  // Step 3: Try to extract from bold/formatted markdown
+  const boldJsonMatch = text.match(/\*\*\{.*?"tool".*?\}\*\*/s);
+  if (boldJsonMatch) {
+    const cleaned = boldJsonMatch[0].replace(/\*\*/g, "");
+    try {
+      return JSON.parse(cleaned) as ToolCall;
+    } catch {
+      // Continue
+    }
+  }
+
+  // Step 4: Try to find any JSON object with "tool" key (more aggressive)
+  const aggressiveMatch = text.match(/\{[\s\S]*?"tool"\s*:[\s\S]*?\}/);
+  if (aggressiveMatch) {
+    try {
+      return JSON.parse(aggressiveMatch[0]) as ToolCall;
+    } catch {
+      // Failed all attempts
+    }
+  }
+
+  return null;
 }
 
 function formatContext(ctx: WorkbookContext): string {
@@ -196,11 +232,17 @@ export async function runAgent(
 
     const toolCall = parseToolCall(response);
 
-    // LLM returned a plain-text answer — use it directly
-    if (!toolCall) return response;
+    // LLM returned a plain-text answer — parse markdown and return
+    if (!toolCall) {
+      const parsed = parseAIResponse(response);
+      return parsed.text;
+    }
 
-    // Agent signals completion
-    if (toolCall.tool === "final_answer") return toolCall.answer;
+    // Agent signals completion — parse markdown from final answer
+    if (toolCall.tool === "final_answer") {
+      const parsed = parseAIResponse(toolCall.answer);
+      return parsed.text;
+    }
 
     // Execute the tool and record the result
     const label = toolCall.tool.replace(/_/g, " ");

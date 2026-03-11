@@ -35,30 +35,44 @@ export default function ChatComponent() {
       }
     });
 
-    // Selection listener
-    let selectionEvent: any = null;
-
-    Office.onReady(() => {
-      Office.context.document.addHandlerAsync(
-        Office.EventType.DocumentSelectionChanged,
-        () => {
-          // Trigger a silent context refresh or just let the next agent run pick it up
-          // For now, we don't need to do much because runAgent calls getWorkbookContext() at the start.
-          // However, we could store it in state if we wanted to show it in the UI.
-          console.log("Selection changed");
-        },
-        (result) => {
-          if (result.status === Office.AsyncResultStatus.Succeeded) {
-            selectionEvent = result.value;
-          }
+    // Selection listener - Office.js is already initialized by main.tsx
+    // So we can directly check if context is available
+    const setupSelectionListener = () => {
+      try {
+        // Check if Office context is available and we're in Excel
+        if (
+          typeof Office !== "undefined" &&
+          Office.context &&
+          Office.context.document &&
+          Office.context.host === Office.HostType.Excel
+        ) {
+          Office.context.document.addHandlerAsync(
+            Office.EventType.DocumentSelectionChanged,
+            () => {
+              // Trigger a silent context refresh or just let the next agent run pick it up
+              // For now, we don't need to do much because runAgent calls getWorkbookContext() at the start.
+              console.log("Selection changed");
+            },
+            (result) => {
+              if (result.status === Office.AsyncResultStatus.Succeeded) {
+                console.log("Selection handler registered successfully");
+              } else {
+                console.warn("Failed to register selection handler:", result.error);
+              }
+            }
+          );
         }
-      );
-    });
+      } catch (err) {
+        console.warn("Could not add selection handler:", err);
+      }
+    };
+
+    // Try to set up listener after a small delay to ensure Office.js is fully ready
+    const timeoutId = setTimeout(setupSelectionListener, 100);
 
     return () => {
-      if (selectionEvent) {
-        // Cleanup listener if possible (Office.js doesn't always make this easy/necessary for add-ins)
-      }
+      clearTimeout(timeoutId);
+      // Note: Office.js doesn't provide a clean way to remove event handlers in task pane add-ins
     };
   }, [getIdTokenClaims]);
 
