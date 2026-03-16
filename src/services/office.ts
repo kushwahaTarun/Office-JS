@@ -45,6 +45,7 @@ export type ToolCall =
   | { tool: "detect_headers"; sheet: string; range?: string }
   | { tool: "get_data_types"; sheet: string; range: string }
   | { tool: "pivot_data"; sheet: string; sourceRange: string; rowFields: string[]; columnFields?: string[]; valueField: string; aggregation?: "sum" | "average" | "count" | "min" | "max" }
+  | { tool: "add_data_validation"; sheet: string; range: string; type: "list" | "whole" | "decimal" | "date" | "textLength"; listSource?: string; operator?: string; formula1?: string; formula2?: string; showDropdown?: boolean; errorMessage?: string }
   | { tool: "final_answer"; answer: string };
 
 export type ExecutableTool = Exclude<ToolCall, { tool: "final_answer" }>;
@@ -604,6 +605,41 @@ export async function executeTool(tool: ExecutableTool): Promise<unknown> {
 
         return { range: tool.range, columnTypes };
       });
+    }
+
+    case "add_data_validation": {
+      await Excel.run(async (ctx) => {
+        const range = ctx.workbook.worksheets.getItem(tool.sheet).getRange(tool.range);
+
+        if (tool.type === "list") {
+          range.dataValidation.rule = {
+            list: {
+              inCellDropDown: tool.showDropdown ?? true,
+              source: tool.listSource ?? "",
+            },
+          };
+        } else {
+          range.dataValidation.rule = {
+            wholeNumber: {
+              operator: (tool.operator ?? "between") as Excel.DataValidationOperator,
+              formula1: tool.formula1 ?? "0",
+              formula2: tool.formula2 ?? "100",
+            },
+          };
+        }
+
+        if (tool.errorMessage) {
+          range.dataValidation.errorAlert = {
+            message: tool.errorMessage,
+            showAlert: true,
+            style: "Stop",
+            title: "Invalid Input",
+          };
+        }
+
+        await ctx.sync();
+      });
+      return `Added ${tool.type} data validation to ${tool.sheet}!${tool.range}`;
     }
 
     case "pivot_data": {

@@ -79,6 +79,12 @@ You have access to powerful tools. To call a tool, respond with ONLY a raw JSON 
 {"tool":"add_conditional_format","sheet":"Sheet1","range":"B2:B10","ruleType":"CellValue","operator":"GreaterThan","formula":"100","fillColor":"#FFC7CE"}
   → Types: CellValue, ColorScale, DataBar, IconSet
 
+== DATA VALIDATION ==
+{"tool":"add_data_validation","sheet":"Sheet1","range":"A1:A100","type":"list","listSource":"Yes,No","showDropdown":true}
+  → Adds in-cell dropdown. listSource is a comma-separated string of values.
+{"tool":"add_data_validation","sheet":"Sheet1","range":"B1:B100","type":"whole","operator":"between","formula1":"1","formula2":"100","errorMessage":"Enter a number between 1 and 100"}
+  → Validates whole numbers. Operators: between, notBetween, equalTo, notEqualTo, greaterThan, lessThan, greaterThanOrEqualTo, lessThanOrEqualTo
+
 == NAMED RANGES ==
 {"tool":"create_named_range","name":"SalesTotal","sheet":"Sheet1","range":"B2:B10"}
 {"tool":"get_named_ranges"}
@@ -209,7 +215,7 @@ const WRITE_TOOLS = new Set([
   "create_table", "format_range", "create_chart", "insert_rows",
   "insert_columns", "delete_rows", "delete_columns", "sort_range",
   "filter_range", "auto_fill", "merge_cells", "unmerge_cells",
-  "add_conditional_format", "create_named_range", "pivot_data",
+  "add_conditional_format", "create_named_range", "pivot_data", "add_data_validation",
 ]);
 
 export async function runAgent(
