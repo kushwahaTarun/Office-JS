@@ -25,6 +25,7 @@ export default function ChatComponent() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
 
   useEffect(() => {
@@ -95,6 +96,8 @@ export default function ChatComponent() {
       textareaRef.current.style.height = "auto";
     }
     setIsLoading(true);
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
     const assistantId = (Date.now() + 1).toString();
     setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "" }]);
@@ -129,7 +132,8 @@ export default function ChatComponent() {
               msg.id === assistantId ? { ...msg, content: status } : msg
             )
           );
-        }
+        },
+        controller.signal
       );
       setMessages((prev) =>
         prev.map((msg) =>
@@ -138,12 +142,16 @@ export default function ChatComponent() {
       );
     } catch (err) {
       const error = err as Error;
+      const isCancelled = error.name === "AbortError";
       setMessages((prev) =>
         prev.map((msg) =>
-          msg.id === assistantId ? { ...msg, content: error.message || "Something went wrong." } : msg
+          msg.id === assistantId
+            ? { ...msg, content: isCancelled ? "Stopped." : error.message || "Something went wrong." }
+            : msg
         )
       );
     } finally {
+      abortControllerRef.current = null;
       setIsLoading(false);
     }
   };
@@ -324,22 +332,34 @@ export default function ChatComponent() {
                 <path d="M8 2v8M5 5l3-3 3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </button>
-            <button
-              className="chat-send-btn"
-              onClick={() => sendMessage(input)}
-              disabled={!input.trim() || isLoading}
-              aria-label="Send"
-            >
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                <path
-                  d="M8 13V3M3 8l5-5 5 5"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
+            {isLoading ? (
+              <button
+                className="chat-send-btn"
+                onClick={() => abortControllerRef.current?.abort()}
+                aria-label="Stop"
+              >
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                  <rect x="3" y="3" width="10" height="10" rx="1.5" fill="currentColor" />
+                </svg>
+              </button>
+            ) : (
+              <button
+                className="chat-send-btn"
+                onClick={() => sendMessage(input)}
+                disabled={!input.trim()}
+                aria-label="Send"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                  <path
+                    d="M8 13V3M3 8l5-5 5 5"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
 

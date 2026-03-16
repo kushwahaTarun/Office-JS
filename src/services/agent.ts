@@ -222,7 +222,8 @@ export async function runAgent(
   userQuery: string,
   token: string,
   tenant: string,
-  onStep: (status: string) => void
+  onStep: (status: string) => void,
+  signal?: AbortSignal
 ): Promise<string> {
   onStep("Reading workbook…");
   const context = await getWorkbookContext();
@@ -249,7 +250,7 @@ export async function runAgent(
           `User request: ${userQuery}`,
         ].join("\n").trim();
 
-    const response = await sendChatMessage({ token, tenant, query: prompt });
+    const response = await sendChatMessage({ token, tenant, query: prompt, signal });
 
     const toolCall = parseToolCall(response);
 

@@ -2,6 +2,7 @@ interface ChatRequest {
   token: string | null;
   tenant: string | null;
   query: string;
+  signal?: AbortSignal;
 }
 
 interface ChatApiResponse {
@@ -9,13 +10,14 @@ interface ChatApiResponse {
   message: string;
 }
 
-export async function sendChatMessage({ query }: ChatRequest): Promise<string> {
+export async function sendChatMessage({ query, signal }: ChatRequest): Promise<string> {
   const url = `${import.meta.env.VITE_API_BASE_URL}/query-answer-final-output`;
 
   const response = await fetch(url, {
     method: "POST",
     body: JSON.stringify({ msg: query }),
     headers: new Headers({ "Content-Type": "application/json" }),
+    signal,
   });
 
   if (response.status === 429)
