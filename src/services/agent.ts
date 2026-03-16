@@ -221,7 +221,9 @@ export async function runAgent(
       "",
       "Current Excel context:",
       formatContext(context),
-      history.length > 0 ? "\nSteps taken so far:\n" + history.join("\n") : "",
+      history.length > 0
+        ? "\nSteps ALREADY EXECUTED (do not repeat these):\n" + history.join("\n") + "\n\nAll steps above have been fully executed on the spreadsheet. If the user's request is now fulfilled, you MUST call final_answer immediately."
+        : "",
       "",
       `User request: ${userQuery}`,
     ]
