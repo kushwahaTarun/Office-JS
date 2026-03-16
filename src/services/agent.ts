@@ -144,9 +144,16 @@ User: "Fill down the formula"
 9. **Smart formatting** - detect numeric/date/text and format appropriately
 10. **Explain clearly** - users need to know what you did`;
 
+function sanitizeJson(text: string): string {
+  // Replace Math.random() expressions with actual random numbers
+  return text.replace(/Math\.random\(\)/g, () => Math.random().toFixed(6));
+}
+
 function parseToolCall(text: string): ToolCall | null {
+  const sanitized = sanitizeJson(text);
+
   // Step 1: Try to extract JSON from markdown code blocks first
-  const markdownJsonMatch = text.match(/```(?:json)?\s*(\{[^`]*\})\s*```/s);
+  const markdownJsonMatch = sanitized.match(/```(?:json)?\s*(\{[^`]*\})\s*```/s);
   if (markdownJsonMatch) {
     try {
       const parsed = JSON.parse(markdownJsonMatch[1]);
@@ -157,7 +164,7 @@ function parseToolCall(text: string): ToolCall | null {
   }
 
   // Step 2: Try to find JSON object in plain text (original method)
-  const jsonMatch = text.match(/\{[^{}]*"tool"\s*:[^{}]*\}/s);
+  const jsonMatch = sanitized.match(/\{[^{}]*"tool"\s*:[^{}]*\}/s);
   if (jsonMatch) {
     try {
       return JSON.parse(jsonMatch[0]) as ToolCall;
@@ -167,7 +174,7 @@ function parseToolCall(text: string): ToolCall | null {
   }
 
   // Step 3: Try to extract from bold/formatted markdown
-  const boldJsonMatch = text.match(/\*\*\{.*?"tool".*?\}\*\*/s);
+  const boldJsonMatch = sanitized.match(/\*\*\{.*?"tool".*?\}\*\*/s);
   if (boldJsonMatch) {
     const cleaned = boldJsonMatch[0].replace(/\*\*/g, "");
     try {
@@ -178,7 +185,7 @@ function parseToolCall(text: string): ToolCall | null {
   }
 
   // Step 4: Try to find any JSON object with "tool" key (more aggressive)
-  const aggressiveMatch = text.match(/\{[\s\S]*?"tool"\s*:[\s\S]*?\}/);
+  const aggressiveMatch = sanitized.match(/\{[\s\S]*?"tool"\s*:[\s\S]*?\}/);
   if (aggressiveMatch) {
     try {
       return JSON.parse(aggressiveMatch[0]) as ToolCall;
