@@ -210,13 +210,6 @@ function formatContext(ctx: WorkbookContext): string {
   ].join("\n");
 }
 
-const WRITE_TOOLS = new Set([
-  "write_cell", "write_range", "add_formula", "clear_range",
-  "create_table", "format_range", "create_chart", "insert_rows",
-  "insert_columns", "delete_rows", "delete_columns", "sort_range",
-  "filter_range", "auto_fill", "merge_cells", "unmerge_cells",
-  "add_conditional_format", "create_named_range", "pivot_data", "add_data_validation",
-]);
 
 export async function runAgent(
   userQuery: string,
@@ -228,24 +221,23 @@ export async function runAgent(
   const context = await getWorkbookContext();
 
   const history: string[] = [];
-  let lastToolWasWrite = false;
-
   for (let step = 0; step < MAX_STEPS; step++) {
-    const prompt = lastToolWasWrite
+    const prompt = history.length > 0
       ? [
           "The following steps have already been executed on the Excel spreadsheet:",
           history.join("\n"),
           "",
           `Original user request: ${userQuery}`,
           "",
-          'The task is complete. Respond with ONLY a final_answer tool call summarizing what was done. Example: {"tool":"final_answer","answer":"Done."}',
+          'If the above steps fully answer the user\'s request, respond with ONLY a final_answer tool call.',
+          'If more steps are still needed to complete the task, make the next tool call now.',
+          'Example final_answer: {"tool":"final_answer","answer":"The active sheet is Sheet1."}',
         ].join("\n")
       : [
           SYSTEM_PROMPT,
           "",
           "Current Excel context:",
           formatContext(context),
-          history.length > 0 ? "\nSteps taken so far:\n" + history.join("\n") : "",
           "",
           `User request: ${userQuery}`,
         ].join("\n").trim();
@@ -275,11 +267,9 @@ export async function runAgent(
       history.push(
         `Step ${step + 1}: ${JSON.stringify(toolCall)} → ${JSON.stringify(result)}`
       );
-      lastToolWasWrite = WRITE_TOOLS.has(toolCall.tool);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Tool execution failed";
       history.push(`Step ${step + 1}: ${JSON.stringify(toolCall)} → Error: ${msg}`);
-      lastToolWasWrite = false;
     }
   }
 
