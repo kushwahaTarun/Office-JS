@@ -31,8 +31,11 @@ export default function ChatComponent() {
   useEffect(() => {
     getIdTokenClaims().then((claims) => {
       if (claims) {
-        const tv = (claims as Record<string, unknown>)["tenant_value"];
-        setTenant(Array.isArray(tv) ? (tv[0] ?? null) : (tv as string) ?? null);
+        const c = claims as Record<string, unknown>;
+        const tv =
+          c["tenant_value"] ??
+          (c["fluidai_app_metadata"] as Record<string, unknown> | undefined)?.["tenant"];
+        setTenant(Array.isArray(tv) ? (tv[0] ?? null) : typeof tv === "string" ? tv : null);
       }
     });
 
