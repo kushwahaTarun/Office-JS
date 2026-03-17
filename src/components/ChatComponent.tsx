@@ -119,7 +119,18 @@ export default function ChatComponent() {
         });
       }
 
-      if (!tenant) {
+      let resolvedTenant: string | null = null;
+      try {
+        const payload = JSON.parse(atob(freshToken.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+        const meta = payload["fluidai_app_metadata"] as Record<string, unknown> | undefined;
+        const tv = payload["tenant_value"] ?? meta?.["tenant"];
+        resolvedTenant = Array.isArray(tv) ? (tv[0] ?? null) : typeof tv === "string" ? tv : null;
+      } catch {
+        // fall back to state if decode fails
+        resolvedTenant = tenant;
+      }
+
+      if (!resolvedTenant) {
         throw new Error("Tenant not available. Please sign out and sign in again.", {
           cause: "CAUGHT_ERROR: AUTH ERROR",
         });
@@ -128,7 +139,7 @@ export default function ChatComponent() {
       const answer = await runAgent(
         text.trim(),
         freshToken,
-        tenant,
+        resolvedTenant,
         (status) => {
           setMessages((prev) =>
             prev.map((msg) =>
