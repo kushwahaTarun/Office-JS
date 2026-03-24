@@ -13,18 +13,10 @@ interface ChatApiResponse {
 export async function sendChatMessage({ token, query, signal }: ChatRequest): Promise<string> {
   const url = `${import.meta.env.VITE_API_BASE_URL}/query-answer-final-output`;
 
-  const headers: HeadersInit = {
-    "Content-Type": "application/json",
-  };
-
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-
   const response = await fetch(url, {
     method: "POST",
-    body: JSON.stringify({ msg: query }),
-    headers,
+    body: JSON.stringify({ msg: query, token }),
+    headers: { "Content-Type": "application/json" },
     signal,
   });
 
