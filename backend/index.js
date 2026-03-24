@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const app = express();
+const jwt = require("jsonwebtoken");
 // import OpenAI from "openai";
 const OpenAI = require("openai");
 const client = new OpenAI();
@@ -10,7 +11,32 @@ const client = new OpenAI();
 app.use(cors());
 app.use(express.json());
 
-app.post("/query-answer-final-output", async (req, res) => {
+// JWT Validation Middleware
+const validateJWT = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({
+      status: "error",
+      message: "Missing or invalid authorization header",
+    });
+  }
+
+  const token = authHeader.substring(7); // Remove "Bearer " prefix
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded; // Attach decoded user info to request
+    next();
+  } catch (error) {
+    return res.status(401).json({
+      status: "error",
+      message: "Invalid or expired token",
+    });
+  }
+};
+
+app.post("/query-answer-final-output", validateJWT, async (req, res) => {
   const userMsg = req.body.msg;
   console.log(userMsg);
   const response = await client.chat.completions.create({
