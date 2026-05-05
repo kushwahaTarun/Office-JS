@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build)",
+      "Bash(npm install marked)",
+      "Bash(npm install @types/marked --save-dev)",
+      "Bash(npm install:*)",
+      "WebSearch",
+      "Bash(npx tsc *)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
