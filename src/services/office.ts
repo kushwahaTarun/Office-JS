@@ -38,7 +38,7 @@ export type ToolCall =
   | { tool: "auto_fill"; sheet: string; sourceRange: string; destinationRange: string }
   | { tool: "merge_cells"; sheet: string; range: string }
   | { tool: "unmerge_cells"; sheet: string; range: string }
-  | { tool: "add_conditional_format"; sheet: string; range: string; ruleType: "CellValue" | "ColorScale" | "DataBar" | "IconSet"; operator?: string; formula?: string; fillColor?: string }
+  | { tool: "add_conditional_format"; sheet: string; range: string; ruleType: "CellValue" | "ColorScale" | "DataBar" | "IconSet" | "TopBottom"; operator?: string; formula?: string; fillColor?: string; rank?: number; topBottomType?: "TopItems" | "BottomItems" | "TopPercent" | "BottomPercent" }
   | { tool: "create_named_range"; name: string; sheet: string; range: string }
   | { tool: "get_named_ranges" }
   | { tool: "analyze_data"; sheet: string; range: string }
@@ -46,6 +46,8 @@ export type ToolCall =
   | { tool: "get_data_types"; sheet: string; range: string }
   | { tool: "pivot_data"; sheet: string; sourceRange: string; rowFields: string[]; columnFields?: string[]; valueField: string; aggregation?: "sum" | "average" | "count" | "min" | "max" }
   | { tool: "add_data_validation"; sheet: string; range: string; type: "list" | "whole" | "decimal" | "date" | "textLength"; listSource?: string; operator?: string; formula1?: string; formula2?: string; showDropdown?: boolean; errorMessage?: string }
+  | { tool: "create_sheet"; name: string; position?: number }
+  | { tool: "copy_range"; sourceSheet: string; sourceRange: string; targetSheet: string; targetCell: string }
   | { tool: "final_answer"; answer: string };
 
 export type ExecutableTool = Exclude<ToolCall, { tool: "final_answer" }>;
@@ -457,6 +459,15 @@ export async function executeTool(tool: ExecutableTool): Promise<unknown> {
           if (tool.fillColor) {
             cellFormat.format.fill.color = tool.fillColor;
           }
+        } else if (tool.ruleType === "TopBottom") {
+          format = range.conditionalFormats.add("TopBottom");
+          format.topBottom.rule = {
+            rank: tool.rank ?? 1,
+            type: (tool.topBottomType ?? "TopItems") as Excel.ConditionalTopBottomCriterionType,
+          };
+          if (tool.fillColor) {
+            format.topBottom.format.fill.color = tool.fillColor;
+          }
         } else if (tool.ruleType === "ColorScale") {
           format = range.conditionalFormats.add("ColorScale");
         } else if (tool.ruleType === "DataBar") {
@@ -642,6 +653,49 @@ export async function executeTool(tool: ExecutableTool): Promise<unknown> {
       return `Added ${tool.type} data validation to ${tool.sheet}!${tool.range}`;
     }
 
+    case "create_sheet": {
+      return Excel.run(async (ctx) => {
+        const sheets = ctx.workbook.worksheets;
+        sheets.load("items/name");
+        await ctx.sync();
+
+        const exists = sheets.items.some(s => s.name === tool.name);
+        if (exists) {
+          return `Sheet "${tool.name}" already exists`;
+        }
+
+        const newSheet = sheets.add(tool.name);
+        if (tool.position !== undefined) {
+          newSheet.position = tool.position;
+        }
+        newSheet.activate();
+        await ctx.sync();
+        return `Created sheet "${tool.name}"`;
+      });
+    }
+
+    case "copy_range": {
+      return Excel.run(async (ctx) => {
+        const srcRange = ctx.workbook.worksheets
+          .getItem(tool.sourceSheet)
+          .getRange(tool.sourceRange);
+        const topLeft = ctx.workbook.worksheets
+          .getItem(tool.targetSheet)
+          .getRange(tool.targetCell);
+
+        srcRange.load(["values", "rowCount", "columnCount"]);
+        topLeft.load(["rowIndex", "columnIndex"]);
+        await ctx.sync();
+
+        const dest = ctx.workbook.worksheets
+          .getItem(tool.targetSheet)
+          .getRangeByIndexes(topLeft.rowIndex, topLeft.columnIndex, srcRange.rowCount, srcRange.columnCount);
+        dest.values = srcRange.values;
+        await ctx.sync();
+        return `Copied ${tool.sourceSheet}!${tool.sourceRange} → ${tool.targetSheet}!${tool.targetCell} (${srcRange.rowCount}×${srcRange.columnCount})`;
+      });
+    }
+
     case "pivot_data": {
       return Excel.run(async (ctx) => {
         const ws = ctx.workbook.worksheets.getItem(tool.sheet);
@@ -701,6 +755,11 @@ export async function executeTool(tool: ExecutableTool): Promise<unknown> {
           summary: `Pivoted data by ${tool.rowFields.join(", ")} with ${aggregation} of ${tool.valueField}`
         };
       });
+    }
+
+    default: {
+      const unknownTool = (tool as { tool: string }).tool;
+      throw new Error(`Unknown tool: "${unknownTool}". Check tool name spelling — use underscores (e.g. add_conditional_format).`);
     }
   }
 }

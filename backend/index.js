@@ -3,9 +3,26 @@ const express = require("express");
 const cors = require("cors");
 const app = express();
 const jwt = require("jsonwebtoken");
-// import OpenAI from "openai";
+const jwksClient = require("jwks-rsa");
 const OpenAI = require("openai");
 const client = new OpenAI();
+const { runAgentStep } = require("./agent");
+
+const AUTH0_DOMAIN = process.env.AUTH0_DOMAIN;
+const AUTH0_AUDIENCE = process.env.AUTH0_AUDIENCE;
+
+const jwks = jwksClient({
+  jwksUri: `https://${AUTH0_DOMAIN}/.well-known/jwks.json`,
+  cache: true,
+  rateLimit: true,
+});
+
+function getKey(header, callback) {
+  jwks.getSigningKey(header.kid, (err, key) => {
+    if (err) return callback(err);
+    callback(null, key.getPublicKey());
+  });
+}
 
 // Middleware
 app.use(cors());
@@ -22,25 +39,33 @@ const validateJWT = (req, res, next) => {
     });
   }
 
-  const token = authHeader.substring(7); // Remove "Bearer " prefix
+  const token = authHeader.substring(7);
 
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; // Attach decoded user info to request
-    next();
-  } catch (error) {
-    return res.status(401).json({
-      status: "error",
-      message: "Invalid or expired token",
-    });
-  }
+  jwt.verify(
+    token,
+    getKey,
+    {
+      audience: AUTH0_AUDIENCE,
+      issuer: `https://${AUTH0_DOMAIN}/`,
+      algorithms: ["RS256"],
+    },
+    (err, decoded) => {
+      if (err) {
+        console.error("JWT error:", err.message);
+        return res
+          .status(401)
+          .json({ status: "error", message: "Invalid or expired token" });
+      }
+      req.user = decoded;
+      next();
+    },
+  );
 };
 
 app.post("/query-answer-final-output", validateJWT, async (req, res) => {
   const userMsg = req.body.msg;
-  console.log(userMsg);
   const response = await client.chat.completions.create({
-    model: "gpt-4",
+    model: "gpt-5",
     messages: [
       {
         role: "system",
@@ -75,7 +100,8 @@ You have access to powerful tools. To call a tool, respond with ONLY a raw JSON 
   → Apply formatting: numberFormat, fontColor, fillColor, bold, italic, fontSize
 
 {"tool":"create_chart","sheet":"Sheet1","dataRange":"A1:C10","chartType":"ColumnClustered","title":"Sales Report","position":"E2"}
-  → Creates chart. Types: ColumnClustered, Line, Pie, Bar, Area, XYScatter
+  → Creates chart. Types: ColumnClustered, Line, Pie, Area, XYScatter
+  → NOTE: "Bar" type is unsupported — use ColumnClustered for bar/column charts
 
 == DATA MANIPULATION ==
 {"tool":"insert_rows","sheet":"Sheet1","index":5,"count":3}
@@ -183,12 +209,32 @@ User: "Fill down the formula"
     ],
   });
 
-  console.log(response.choices[0].message.content);
-
   res.json({
     status: "success",
     message: response.choices[0].message.content,
   });
+});
+
+// Agentic harness: one LLM step per request. The client owns the loop —
+// it executes any returned tool calls against Office.js and POSTs the
+// updated message array back to advance the conversation. The legacy
+// /query-answer-final-output endpoint above is preserved for rollback.
+app.post("/agent/step", validateJWT, async (req, res) => {
+  try {
+    const { messages } = req.body || {};
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return res.status(400).json({
+        status: "error",
+        message: "messages must be a non-empty array of ModelMessage objects.",
+      });
+    }
+    const result = await runAgentStep(messages);
+    res.json({ status: "success", ...result });
+  } catch (err) {
+    console.error("/agent/step error:", err);
+    const message = err && err.message ? err.message : "Agent step failed.";
+    res.status(500).json({ status: "error", message });
+  }
 });
 
 app.get("/", (req, res) => {
