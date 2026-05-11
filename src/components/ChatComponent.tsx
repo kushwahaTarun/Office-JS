@@ -164,23 +164,31 @@ export default function ChatComponent() {
   };
 
   const avatarLetter = user?.name?.[0]?.toUpperCase() ?? "U";
+  const currentGreeting = user?.given_name ? `Hi, ${user.given_name}` : "Excel workspace";
 
   return (
     <div className={`chat-root${dark ? " dark" : ""}`}>
       <div className="chat-main">
 
-        {/* Rounded card — messages area */}
         <div className="chat-card">
+          <div className="chat-orb chat-orb-one" />
+          <div className="chat-orb chat-orb-two" />
           <div className="chat-card-bar">
             <div className="chat-card-bar-left">
-              <span className="chat-beta">Beta</span>
+              <div className="chat-brand-mark" aria-hidden="true">
+                <span />
+              </div>
+              <div>
+                <div className="chat-title">Fluid GPT</div>
+                <div className="chat-subtitle">{currentGreeting}</div>
+              </div>
             </div>
             <div className="chat-card-bar-right">
-              {/* New chat */}
               <button
                 className="chat-icon-btn"
                 onClick={() => setMessages([])}
                 title="New chat"
+                aria-label="New chat"
               >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <circle cx="8" cy="8" r="6.3" stroke="currentColor" strokeWidth="1.4" />
@@ -188,11 +196,11 @@ export default function ChatComponent() {
                 </svg>
               </button>
 
-              {/* Dark / light mode toggle */}
               <button
                 className="chat-icon-btn"
                 onClick={() => setDark((d) => !d)}
                 title={dark ? "Switch to light mode" : "Switch to dark mode"}
+                aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
               >
                 {dark ? (
                   /* Sun icon */
@@ -208,7 +216,6 @@ export default function ChatComponent() {
                 )}
               </button>
 
-              {/* Avatar / sign out */}
               <button
                 className="chat-avatar-btn"
                 onClick={() =>
@@ -231,12 +238,24 @@ export default function ChatComponent() {
               </button>
             </div>
           </div>
+          <div className="chat-status-row">
+            <span className="chat-beta">Beta</span>
+            <span className="chat-status-pill">
+              <span className="status-dot" />
+              Workbook aware
+            </span>
+          </div>
 
           <div className="chat-messages">
             {messages.length === 0 ? (
               <div className="chat-empty">
-                <div className="chat-empty-icon">✦</div>
-                <p className="chat-empty-text">Take actions in Excel</p>
+                <div className="chat-empty-icon" aria-hidden="true">
+                  <span />
+                </div>
+                <h2 className="chat-empty-title">What should your workbook do next?</h2>
+                <p className="chat-empty-text">
+                  Ask for analysis, formula help, cleanup, or a direct spreadsheet action.
+                </p>
                 <div className="chat-quick-actions">
                   {QUICK_ACTIONS.map((action) => (
                     <button
@@ -276,7 +295,6 @@ export default function ChatComponent() {
           </div>
         </div>
 
-        {/* Input card */}
         <div className="chat-input-card">
           {attachedFile && (
             <div className="chat-attachment-tag">
@@ -298,7 +316,7 @@ export default function ChatComponent() {
             value={input}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            placeholder="Reply"
+            placeholder="Ask Fluid GPT to work with this spreadsheet..."
             rows={1}
             disabled={isLoading}
           />

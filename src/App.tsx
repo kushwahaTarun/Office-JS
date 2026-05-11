@@ -9,7 +9,11 @@ function App() {
     return (
       <div className="app-container">
         <div className="loading-state">
-          <div className="loading-text">Loading...</div>
+          <div className="brand-mark" aria-hidden="true">
+            <span />
+          </div>
+          <div className="loading-text">Preparing workspace</div>
+          <div className="loading-subtext">Connecting Fluid GPT to Excel</div>
         </div>
       </div>
     );
@@ -19,8 +23,11 @@ function App() {
     return (
       <div className="app-container">
         <div className="error-state">
-          <div className="error-title">Oops!</div>
-          <div className="error-message">Something went wrong</div>
+          <div className="brand-mark error" aria-hidden="true">
+            <span />
+          </div>
+          <div className="error-title">Connection interrupted</div>
+          <div className="error-message">Something went wrong while starting Fluid GPT.</div>
           <div className="error-sub-message">{error.message}</div>
         </div>
       </div>
@@ -33,14 +40,22 @@ function App() {
         <ChatComponent />
       ) : (
         <div className="login-screen">
+          <div className="login-ambient login-ambient-one" />
+          <div className="login-ambient login-ambient-two" />
           <div className="login-card">
             <div className="login-icon">
-              <svg width="28" height="28" viewBox="0 0 16 16" fill="none">
-                <path d="M8 1l1.5 4.5L14 7l-4.5 1.5L8 13l-1.5-4.5L2 7l4.5-1.5z" fill="#6366f1"/>
-              </svg>
+              <span />
             </div>
-            <h2 className="login-title">Fluid GPT for Excel</h2>
-            <p className="login-subtitle">Sign in to start taking AI-powered actions in your spreadsheet</p>
+            <div className="login-kicker">Excel AI Copilot</div>
+            <h1 className="login-title">Fluid GPT</h1>
+            <p className="login-subtitle">
+              Turn workbook context into formulas, summaries, and spreadsheet actions with a focused AI task pane.
+            </p>
+            <div className="login-feature-row" aria-label="Capabilities">
+              <span>Analyze</span>
+              <span>Transform</span>
+              <span>Automate</span>
+            </div>
             <LoginButton />
           </div>
         </div>
