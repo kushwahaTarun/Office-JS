@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 import fs from 'fs'
 import path from 'path'
 
@@ -10,7 +11,7 @@ const hasCerts = fs.existsSync(certKeyPath) && fs.existsSync(certPath)
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [tailwindcss(), react()],
   server: {
     port: 5173,
     strictPort: true, // Fail if port is in use instead of trying another

@@ -1,5 +1,5 @@
 {
-  "name": "office-js",
+  "name": "fluid-ai-gpt-office-apps",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -11,10 +11,16 @@
   },
   "dependencies": {
     "@auth0/auth0-react": "^2.15.0",
+    "@tailwindcss/vite": "^4.3.0",
     "@types/office-js": "^1.0.571",
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.38.0",
+    "lucide-react": "^1.14.0",
     "marked": "^17.0.4",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "tailwind-merge": "^3.6.0",
+    "tailwindcss": "^4.3.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
