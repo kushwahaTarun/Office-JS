@@ -5,7 +5,13 @@ const app = express();
 const jwt = require("jsonwebtoken");
 const jwksClient = require("jwks-rsa");
 const OpenAI = require("openai");
-const client = new OpenAI();
+// Routed through the internal AKS LLM proxy. The official openai SDK
+// picks up OPENAI_BASE_URL automatically, but we pass it explicitly so
+// the wiring is obvious to future readers.
+const client = new OpenAI({
+  baseURL: process.env.OPENAI_BASE_URL,
+  apiKey: process.env.OPENAI_API_KEY,
+});
 const { runAgentStep } = require("./agent");
 
 const AUTH0_DOMAIN = process.env.AUTH0_DOMAIN;
@@ -25,8 +31,23 @@ function getKey(header, callback) {
 }
 
 // Middleware
+// Chrome Private Network Access (PNA): a public origin (e.g. the
+// hosted Vercel add-in) calling loopback (localhost:8000) is blocked
+// unless the server opts in by echoing this header on the preflight.
+// Must run BEFORE cors() so the OPTIONS response carries it.
+app.use((req, res, next) => {
+  if (
+    req.method === "OPTIONS" &&
+    req.headers["access-control-request-private-network"]
+  ) {
+    res.setHeader("Access-Control-Allow-Private-Network", "true");
+  }
+  next();
+});
 app.use(cors());
-app.use(express.json());
+// Bump JSON body limit — agent payloads carry the full conversation
+// (workbook context + tool results) and can grow past the 100kb default.
+app.use(express.json({ limit: "10mb" }));
 
 // JWT Validation Middleware
 const validateJWT = (req, res, next) => {
@@ -239,6 +260,20 @@ app.post("/agent/step", validateJWT, async (req, res) => {
 
 app.get("/", (req, res) => {
   res.send("Hello from the Excel AI assistant backend!");
+});
+
+// Global error handler — guarantees CORS headers on every response
+// (otherwise a thrown error inside a route handler can produce a
+// browser-side "CORS error" instead of the actual status).
+app.use((err, req, res, _next) => {
+  console.error("Unhandled error:", err);
+  if (!res.headersSent) {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+  }
+  res.status(err.status || 500).json({
+    status: "error",
+    message: err.message || "Internal server error",
+  });
 });
 
 const PORT = process.env.PORT || 8000;

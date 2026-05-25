@@ -81,26 +81,31 @@ export async function getWorkbookContext(): Promise<WorkbookContext> {
       sheets.load("items/name");
       selected.load(["address", "values", "rowCount", "columnCount"]);
 
+      // Sync 1: get the list of sheets and the active-sheet name. We need
+      // these before we can request per-sheet used ranges.
       await ctx.sync();
 
-      // Load metadata for all sheets
-      const sheetsMetadata: SheetMetadata[] = [];
-      for (const sheet of sheets.items) {
-        const usedRange = sheet.getUsedRangeOrNullObject();
-        usedRange.load(["address", "rowCount", "columnCount", "isNullObject"]);
-        await ctx.sync();
-
-        sheetsMetadata.push({
-          name: sheet.name,
-          rowCount: usedRange.isNullObject ? 0 : usedRange.rowCount,
-          columnCount: usedRange.isNullObject ? 0 : usedRange.columnCount,
-          hasData: !usedRange.isNullObject
-        });
-      }
+      // Batch every per-sheet load AND the active sheet's preview values
+      // into a single second sync. Without this, each sheet costs an
+      // extra ExecuteRichApiRequest round-trip — which is what showed up
+      // as duplicate Microsoft API calls in the network panel.
+      const usedRanges = sheets.items.map((sheet) => {
+        const ur = sheet.getUsedRangeOrNullObject();
+        ur.load(["rowCount", "columnCount", "isNullObject"]);
+        return ur;
+      });
 
       const activeUsedRange = activeSheet.getUsedRangeOrNullObject();
       activeUsedRange.load(["isNullObject", "values"]);
+
       await ctx.sync();
+
+      const sheetsMetadata: SheetMetadata[] = sheets.items.map((sheet, i) => ({
+        name: sheet.name,
+        rowCount: usedRanges[i].isNullObject ? 0 : usedRanges[i].rowCount,
+        columnCount: usedRanges[i].isNullObject ? 0 : usedRanges[i].columnCount,
+        hasData: !usedRanges[i].isNullObject,
+      }));
 
       let sheetData = "Empty sheet";
       if (!activeUsedRange.isNullObject) {

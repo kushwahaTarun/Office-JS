@@ -5,12 +5,19 @@
 // until finalText is non-null.
 
 const { generateText, stepCountIs } = require("ai");
-const { openai } = require("@ai-sdk/openai");
+const { createOpenAI } = require("@ai-sdk/openai");
 
 const { SYSTEM_PROMPT } = require("./system-prompt");
 const { tools } = require("./tools");
 
 const MODEL_ID = process.env.AGENT_MODEL || "gpt-5";
+
+// Routed through the internal AKS LLM proxy — same base URL + token as
+// the chat-completions endpoint in index.js.
+const openai = createOpenAI({
+  baseURL: process.env.OPENAI_BASE_URL,
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 // stepCountIs(1) — we want generateText to do exactly one LLM call and
 // hand control back to the client (which will execute the tools and
@@ -20,7 +27,10 @@ const STOP_AFTER_ONE_LLM_CALL = stepCountIs(1);
 
 async function runAgentStep(messages) {
   const result = await generateText({
-    model: openai(MODEL_ID),
+    // .chat() pins the call to /v1/chat/completions. The default
+    // openai(MODEL_ID) targets /v1/responses, which the AKS proxy
+    // doesn't implement (returns 404).
+    model: openai.chat(MODEL_ID),
     system: SYSTEM_PROMPT,
     messages,
     tools,
