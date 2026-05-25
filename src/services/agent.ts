@@ -1,11 +1,25 @@
-import { getWorkbookContext, executeTool } from "./office";
-import type { ExecutableTool, WorkbookContext } from "./office";
+// Client-side agent loop. The Vercel AI SDK drives the LLM ↔ tool
+// round-trips entirely in the browser — the backend `/agent/step` route
+// is no longer involved.
+import { generateText, stepCountIs } from "ai";
+import { createOpenAI } from "@ai-sdk/openai";
+import { getWorkbookContext } from "./office";
+import type { WorkbookContext } from "./office";
 import { getWorkbookInsights } from "./contextUtils";
 import { parseAIResponse } from "./markdownUtils";
-import { postAgentStep } from "./agentClient";
-import type { AgentMessage, AgentToolCall } from "./agentClient";
+import { SYSTEM_PROMPT } from "../agent/systemPrompt";
+import { createTools } from "../agent/tools";
 
-const MAX_STEPS = 15;
+const MAX_STEPS = 20;
+const MODEL_ID = "gpt-5";
+
+// SECURITY NOTE: this API key ships in the client bundle. Treat it as
+// public — the org-wide proxy token must be rotated to per-user tokens
+// before any wider release.
+const openai = createOpenAI({
+  baseURL: import.meta.env.VITE_OPENAI_BASE_URL,
+  apiKey: import.meta.env.VITE_OPENAI_API_KEY,
+});
 
 function formatContext(ctx: WorkbookContext): string {
   const selected = ctx.selectedRange;
@@ -13,7 +27,7 @@ function formatContext(ctx: WorkbookContext): string {
   const sheetsMeta = ctx.sheetsMetadata
     .map(
       (m) =>
-        `- ${m.name}: ${m.rowCount} rows, ${m.columnCount} cols ${m.hasData ? "(contains data)" : "(empty)"}`
+        `- ${m.name}: ${m.rowCount} rows, ${m.columnCount} cols ${m.hasData ? "(contains data)" : "(empty)"}`,
     )
     .join("\n");
 
@@ -40,85 +54,51 @@ function formatContext(ctx: WorkbookContext): string {
   ].join("\n");
 }
 
-function toToolResultMessage(
-  call: AgentToolCall,
-  output: unknown,
-  isError = false
-): AgentMessage {
-  return {
-    role: "tool",
-    content: [
-      {
-        type: "tool-result",
-        toolCallId: call.toolCallId,
-        toolName: call.toolName,
-        output: isError
-          ? { type: "error-text", value: String(output) }
-          : { type: "json", value: output as unknown },
-      },
-    ],
-  };
-}
-
 export async function runAgent(
   userQuery: string,
-  token: string,
-  // tenant kept for signature compatibility with the legacy call site;
-  // the harness no longer needs it (auth is via the JWT alone).
+  // Auth0 token + tenant are kept for signature compatibility with
+  // ChatComponent. Neither is sent to the LLM proxy now.
+  _token: string,
   _tenant: string,
   onStep: (status: string) => void,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<string> {
   onStep("Reading workbook…");
   const context = await getWorkbookContext();
 
-  const initialUserContent = [
+  if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+
+  const userContent = [
     "Current Excel context:",
     formatContext(context),
     "",
     `User request: ${userQuery}`,
   ].join("\n");
 
-  let messages: AgentMessage[] = [{ role: "user", content: initialUserContent }];
+  onStep("Thinking…");
 
-  for (let step = 0; step < MAX_STEPS; step++) {
-    if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+  const tools = createTools((name) => onStep(`${name.replace(/_/g, " ")}…`));
 
-    onStep(step === 0 ? "Thinking…" : "Continuing…");
-    const response = await postAgentStep({ token, messages, signal });
-    messages = response.messages;
+  try {
+    const result = await generateText({
+      model: openai.chat(MODEL_ID),
+      system: SYSTEM_PROMPT,
+      messages: [{ role: "user", content: userContent }],
+      tools,
+      stopWhen: stepCountIs(MAX_STEPS),
+      abortSignal: signal,
+    });
 
-    if (response.finalText !== null) {
-      return parseAIResponse(response.finalText).text;
-    }
-
-    if (response.toolCalls.length === 0) {
-      // No tool calls and no final text — treat as done with empty answer
+    if (!result.text || result.text.trim().length === 0) {
       return "Done.";
     }
+    return parseAIResponse(result.text).text;
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") throw err;
 
-    const toolMessages: AgentMessage[] = [];
-    for (const call of response.toolCalls) {
-      if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
-
-      onStep(`${call.toolName.replace(/_/g, " ")}…`);
-
-      const executable = {
-        tool: call.toolName,
-        ...call.input,
-      } as unknown as ExecutableTool;
-
-      try {
-        const result = await executeTool(executable);
-        toolMessages.push(toToolResultMessage(call, result));
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "Tool execution failed";
-        toolMessages.push(toToolResultMessage(call, msg, true));
-      }
-    }
-
-    messages = [...messages, ...toolMessages];
+    const message = err instanceof Error ? err.message : "Agent failed";
+    throw new Error(`Network error, please try again: ${message}.`, {
+      cause: "CAUGHT_ERROR: NETWORK ERROR",
+    });
   }
-
-  return "I completed several steps but reached the maximum iteration limit. Please check your spreadsheet for the changes made.";
 }
