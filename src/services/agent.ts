@@ -1,6 +1,3 @@
-// Client-side agent loop. The Vercel AI SDK drives the LLM ↔ tool
-// round-trips entirely in the browser — the backend `/agent/step` route
-// is no longer involved.
 import { generateText, stepCountIs } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { getWorkbookContext } from "./office";
